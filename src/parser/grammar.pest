@@ -1,0 +1,167 @@
+
+file                        = _{ SOI ~ file_attributes? ~ statement* ~ EOI }
+
+WHITESPACE                  = _{ (" " | "\t" | "\r" | "\n")+ }
+COMMENT                     = _{ comment_block | comment_line }
+comment_block               = @{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+comment_line                = @{ "//" ~ (!("\r" | "\n") ~ ANY)* }
+newline                     = _{ (" " | "\t")* ~ ("\n" | "\r")+ ~ (" " | "\t")* }
+reserved                    =  { "let" | "mut" | "class" | "struct" | "interface" | "function" | "namespace" | "use" | "import" | "package" | "public" | "private" | "static" |
+                                 "constructor" | "typedef" | "break" | "continue" | "new" }
+
+expression                  = _{ infix | expression_inner }
+infix                       =  { expression_inner ~ (binary_operator ~ expression_inner)+ }
+instance_infix              =  { expression_instance_inner ~ (binary_operator ~ expression_instance_inner)+ }
+expression_inner            = _{ literal | access | unary | braced_expression }
+braced_expression           = _{ "(" ~ expression ~ ")" }
+expression_instance_inner   = _{ expression_inner }
+instance_espression         = _{ instance_infix | expression_instance_inner }
+
+declaration                 =  { ("let" | "mut") ~ visibility? ~ status? ~ ident ~ ":" ~ ((typespec? ~ assign ~ instance_espression) | (typespec)) ~ ";" }
+
+unary                       =  { unary_operator ~ (literal | local | braced_expression) }
+
+file_attributes             =  { file_attribute+ }
+file_attribute              =  { "#![" ~ expression ~ "]" }
+attribute                   =  { "#[" ~ expression ~ "]" }
+
+access                      =  { ident ~ ((((dot | scope) ~ ident)? ~ ((generic_call_args? ~ call_arguments) | index)) | (((dot | scope) ~ ident) ~ ((generic_call_args? ~ call_arguments) | index)?))* }
+dot                         =  { "." }
+scope                       =  { "::" }
+
+index                       =  { "[" ~ expression ~ "]" }
+call_arguments              =  { "(" ~ (call_argument ~ ("," ~ call_argument)* )? ~ ")" }
+call_argument               =  { expression }
+generic_call_args           =  { "<" ~ (typespec ~ ("," ~ typespec)*)? ~ ">" }
+
+scope_resolution            =  { ident ~ ("::" ~ ident)* }
+dotted                      =  { scope_resolution ~ ("." ~ scope_resolution)* }
+
+visibility                  =  { "public" | "private" }
+status                      =  { "static" }
+
+defargs                     = _{ "(" ~ (defarg ~ ("," ~ defarg)*)? ~ ")" }
+defarg                      =  { ident ~ ":" ~ typespec }
+
+map                         =  { "{" ~ (map_pair ~ ("," ~ map_pair)*)? ~ "}" }
+map_pair                    =  { expression ~ ":" ~ expression }
+array                       =  { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
+
+statement                   =  { attribute | function | declaration | class_def | struct_def | type_def |
+                                 return_stmt | break_stmt | continue_stmt | import_stmt | use_stmt | expr_statement }
+expr_statement              =  { expression ~ ";" }
+
+function                    =  { visibility? ~ status? ~ "function" ~ function_signature ~ function_block }
+function_args               =  { defargs }
+function_signature          =  { ident ~ generic_def_args? ~ function_args ~ function_output }
+function_output             =  { "->" ~ typespec }
+function_block              =  { "{" ~ statement* ~ "}" }
+
+class_def                   =  { "class" ~ ident ~ generic_def_args? ~ class_block }
+class_block                 =  { "{" ~ class_statement* ~ "}" ~ ";"? }
+class_statement             = _{ declaration | function | class_construct_method }
+class_construct_method      =  { "constructor" ~ function_args ~ function_block }
+
+struct_def                  =  { "struct" ~ ident ~ generic_def_args? ~ struct_block }
+struct_block                =  { "{" ~ struct_declarations ~ "}" ~ ";"? }
+struct_declarations         =  { struct_declaration ~ ("," ~ struct_declaration)* }
+struct_declaration          =  { visibility? ~ ident ~ ":" ~ typespec }
+
+generic_def_args            =  { "<" ~ (generic_def_arg ~ ("," ~ generic_def_arg)*)? ~ ">" }
+generic_def_arg             =  { ident ~ ("implements" ~ ident)? }
+
+type_def                    =  { "typedef" ~ ident ~ ":" ~ typespec ~ ";" }
+return_stmt                 =  { "return" ~ expression? ~ ";" }
+break_stmt                  =  { "break" ~ ";" }
+continue_stmt               =  { "continue" ~ ";" }
+
+import_stmt                 =  { "import" ~ string ~ ("as" ~ ident)? ~ ";" }
+use_stmt                    =  { "use" ~ scope_resolution ~ use_all? ~ ("as" ~ ident)? ~ ";" }
+use_all                     =  { "::" ~ "*" }
+
+literal                     = _{ class_constructor | struct_constructor | map | array | reference | string | float | integer | boolean }
+
+class_constructor           =  { "new" ~ scope_resolution ~ generic_call_args? ~ defargs }
+struct_constructor          =  { scope_resolution ~ generic_call_args? ~ struct_map }
+struct_map                  =  { "{" ~ (struct_map_pair ~ ("," ~ struct_map_pair)*)? ~ "}" }
+struct_map_pair             =  { ident ~ ":" ~ expression }
+
+ident                       = @{ (!reserved ~ ((LETTER | "_") ~ (LETTER | NUMBER | "_")*)) }
+reference                   = @{ "&" ~ scope_resolution }
+
+typename                    = @{ scope_resolution }
+typespec                    =  { "*"* ~ typename ~ generic_def_args? ~ type_array* }
+type_array                  =  { "[" ~ integer_decimal? ~ "]"}
+
+float                       = ${ float_characteristic ~ "." ~ float_mantissa }
+float_characteristic        =  { "0" | (('1'..'9') ~ ('0'..'9' | "_")*) }
+float_mantissa              =  { ('0'..'9')+ }
+
+integer                     = ${ integer_hexadecimal_sigil | integer_octal_sigil | integer_binary_sigil | integer_decimal | integer_zero }
+integer_decimal             =  { '1'..'9' ~ ('0'..'9' | "_")* }
+integer_hexadecimal         =  { ('0'..'9' | 'a'..'f' | 'A'..'F') ~ ('0'..'9' | 'a'..'f' | 'A'..'F' | "_")* }
+integer_hexadecimal_sigil   = _{ "0x" ~ integer_hexadecimal }
+integer_octal               =  { ('0'..'7') ~ ('0'..'7' | "_" )* }
+integer_octal_sigil         = _{ "0o" ~ integer_octal }
+integer_binary              =  { ('0'..'1') ~ ('0'..'1' | "_")* }
+integer_binary_sigil        = _{ "0b" ~ integer_binary }
+integer_zero                =  { "0" }
+
+string                      = ${ string_single_line }
+string_single_line          = _{ string_delimiter ~ string_content ~ string_delimiter }
+string_content              = ${ (string_escape | !(string_delimiter | "\\") ~ ANY)* }
+string_delimiter            = _{ "\"" }
+string_unicode              = _{ "u" ~ ('0'..'9' | 'a'..'f' | 'A'..'F'){4} }
+string_escape               = _{ "\\" ~ ("\"" | "\\" | "a" | "b" | "f" | "n" | "r" | "t" | "v" | string_unicode) }
+
+local =  { ident }
+
+exponent                    =  { "**" }
+multiply                    =  { "*" }
+divide                      =  { "/" }
+modulus                     =  { "%" }
+plus                        =  { "+" }
+minus                       =  { "-" }
+shift_left                  =  { "<<" }
+shift_right                 =  { ">>" }
+less_than                   =  { "<" }
+less_than_or_equal          =  { "<=" }
+greater_than                =  { ">" }
+greater_than_or_equal       =  { ">=" }
+not_equal                   =  { "!=" }
+equal                       =  { "==" }
+logical_and                 =  { "&&" }
+logical_or                  =  { "||" }
+logical_not                 =  { "!" }
+bitwise_and                 =  { "&" }
+bitwise_or                  =  { "|" }
+bitwise_xor                 =  { "^" }
+assign                      =  { "=" }
+all_operators               = _{
+                                 exponent |
+                                 multiply | divide | modulus |
+                                 plus | minus |
+                                 shift_left | shift_right |
+                                 less_than_or_equal | less_than |
+                                 greater_than_or_equal | greater_than |
+                                 not_equal | equal |
+                                 logical_and | logical_or | logical_not |
+                                 bitwise_and | bitwise_or | bitwise_xor |
+                                 assign
+                                }
+binary_operator             = _{
+                                 exponent |
+                                 multiply | divide | modulus |
+                                 plus | minus |
+                                 shift_left | shift_right |
+                                 less_than_or_equal | less_than |
+                                 greater_than_or_equal | greater_than |
+                                 not_equal | equal |
+                                 logical_and | logical_or |
+                                 bitwise_and | bitwise_or | bitwise_xor
+                               }
+unary_operator              = _{ plus | minus | logical_not }
+
+boolean                     =  { boolean_true | boolean_false }
+boolean_true                =  { "true" }
+boolean_false               =  { "false" }

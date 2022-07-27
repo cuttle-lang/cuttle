@@ -1,0 +1,9 @@
+use std::io;
+
+class Parser<T> {
+    
+} 
+
+function main(argc: int, argv: string[]) -> int {
+    io::println("Hello World!");
+}
