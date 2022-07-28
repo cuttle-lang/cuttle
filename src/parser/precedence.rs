@@ -1,4 +1,4 @@
-use crate::grammar::Rule;
+use crate::parser::grammar::Rule;
 
 use pest::{
     prec_climber::{Assoc, Operator, PrecClimber},
@@ -10,7 +10,7 @@ lazy_static! {
 
 fn build_precedence_climber() -> PrecClimber<Rule> {
     PrecClimber::new(vec![
-        Operator::new(Rule::assignment, Assoc::Left),
+        Operator::new(Rule::assign, Assoc::Left),
         Operator::new(Rule::logical_or, Assoc::Left),
         Operator::new(Rule::logical_and, Assoc::Left),
         Operator::new(Rule::equal, Assoc::Right)
@@ -30,6 +30,6 @@ fn build_precedence_climber() -> PrecClimber<Rule> {
             | Operator::new(Rule::divide, Assoc::Left)
             | Operator::new(Rule::multiply, Assoc::Left),
         Operator::new(Rule::exponent, Assoc::Right),
-        Operator::new(Rule::cast, Assoc::Left)
+        // Operator::new(Rule::cast, Assoc::Left)
     ])
 }

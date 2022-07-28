@@ -1,5 +1,6 @@
 
-file                        = _{ SOI ~ file_attributes? ~ statement* ~ EOI }
+file                        =  { SOI ~ scope_attributes? ~ statements }
+statements                  = _{ statement* ~ EOI }
 
 WHITESPACE                  = _{ (" " | "\t" | "\r" | "\n")+ }
 COMMENT                     = _{ comment_block | comment_line }
@@ -9,20 +10,17 @@ newline                     = _{ (" " | "\t")* ~ ("\n" | "\r")+ ~ (" " | "\t")* 
 reserved                    =  { "let" | "mut" | "class" | "struct" | "interface" | "function" | "namespace" | "use" | "import" | "package" | "public" | "private" | "static" |
                                  "constructor" | "typedef" | "break" | "continue" | "new" }
 
-expression                  = _{ infix | expression_inner }
-infix                       =  { expression_inner ~ (binary_operator ~ expression_inner)+ }
-instance_infix              =  { expression_instance_inner ~ (binary_operator ~ expression_instance_inner)+ }
-expression_inner            = _{ literal | access | unary | braced_expression }
+expression                  =  { infix }
+infix                       = _{ term ~ (binary_operator ~ term)* }
+term                        =  { literal | access | unary | braced_expression }
 braced_expression           = _{ "(" ~ expression ~ ")" }
-expression_instance_inner   = _{ expression_inner }
-instance_espression         = _{ instance_infix | expression_instance_inner }
 
-declaration                 =  { ("let" | "mut") ~ visibility? ~ status? ~ ident ~ ":" ~ ((typespec? ~ assign ~ instance_espression) | (typespec)) ~ ";" }
+declaration                 =  { ("let" | "mut") ~ visibility? ~ status? ~ ident ~ ":" ~ ((typespec? ~ assign ~ expression) | (typespec)) ~ ";" }
 
 unary                       =  { unary_operator ~ (literal | local | braced_expression) }
 
-file_attributes             =  { file_attribute+ }
-file_attribute              =  { "#![" ~ expression ~ "]" }
+scope_attributes            =  { scope_attribute+ }
+scope_attribute             =  { "#![" ~ expression ~ "]" }
 attribute                   =  { "#[" ~ expression ~ "]" }
 
 access                      =  { ident ~ ((((dot | scope) ~ ident)? ~ ((generic_call_args? ~ call_arguments) | index)) | (((dot | scope) ~ ident) ~ ((generic_call_args? ~ call_arguments) | index)?))* }
@@ -47,7 +45,7 @@ map                         =  { "{" ~ (map_pair ~ ("," ~ map_pair)*)? ~ "}" }
 map_pair                    =  { expression ~ ":" ~ expression }
 array                       =  { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
 
-statement                   =  { attribute | function | declaration | class_def | struct_def | type_def |
+statement                   = _{ attribute | function | declaration | class_def | struct_def | type_def |
                                  return_stmt | break_stmt | continue_stmt | import_stmt | use_stmt | expr_statement }
 expr_statement              =  { expression ~ ";" }
 
@@ -57,7 +55,9 @@ function_signature          =  { ident ~ generic_def_args? ~ function_args ~ fun
 function_output             =  { "->" ~ typespec }
 function_block              =  { "{" ~ statement* ~ "}" }
 
-class_def                   =  { "class" ~ ident ~ generic_def_args? ~ class_block }
+class_def                   =  { "class" ~ ident ~ generic_def_args? ~ ((class_implements | class_extends) ~ scope_resolution)? ~ class_block }
+class_implements            =  { "implements" }
+class_extends               =  { "extends" }
 class_block                 =  { "{" ~ class_statement* ~ "}" ~ ";"? }
 class_statement             = _{ declaration | function | class_construct_method }
 class_construct_method      =  { "constructor" ~ function_args ~ function_block }
@@ -68,7 +68,7 @@ struct_declarations         =  { struct_declaration ~ ("," ~ struct_declaration)
 struct_declaration          =  { visibility? ~ ident ~ ":" ~ typespec }
 
 generic_def_args            =  { "<" ~ (generic_def_arg ~ ("," ~ generic_def_arg)*)? ~ ">" }
-generic_def_arg             =  { ident ~ ("implements" ~ ident)? }
+generic_def_arg             =  { ident ~ ((class_implements | class_extends) ~ ident)? }
 
 type_def                    =  { "typedef" ~ ident ~ ":" ~ typespec ~ ";" }
 return_stmt                 =  { "return" ~ expression? ~ ";" }
@@ -93,7 +93,7 @@ typename                    = @{ scope_resolution }
 typespec                    =  { "*"* ~ typename ~ generic_def_args? ~ type_array* }
 type_array                  =  { "[" ~ integer_decimal? ~ "]"}
 
-float                       = ${ float_characteristic ~ "." ~ float_mantissa }
+float                       = @{ float_characteristic ~ "." ~ float_mantissa }
 float_characteristic        =  { "0" | (('1'..'9') ~ ('0'..'9' | "_")*) }
 float_mantissa              =  { ('0'..'9')+ }
 
@@ -114,7 +114,7 @@ string_delimiter            = _{ "\"" }
 string_unicode              = _{ "u" ~ ('0'..'9' | 'a'..'f' | 'A'..'F'){4} }
 string_escape               = _{ "\\" ~ ("\"" | "\\" | "a" | "b" | "f" | "n" | "r" | "t" | "v" | string_unicode) }
 
-local =  { ident }
+local                       =  { ident }
 
 exponent                    =  { "**" }
 multiply                    =  { "*" }
