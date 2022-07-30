@@ -1,7 +1,5 @@
 use crate::types::Type;
-use super::{
-    Span, Node, Result
-};
+use super::{ASTNode, Span, Node, Result};
 
 #[derive(Debug)]
 pub struct Float {
@@ -13,6 +11,12 @@ pub struct Float {
 impl Float {
     pub fn new(value: f64, span: Span) -> Self {
         Self{ value, typ: None, span }
+    }
+}
+
+impl ASTNode for Float {
+    fn get_span(&self) -> Span {
+        self.span.clone()
     }
 }
 

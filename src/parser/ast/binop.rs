@@ -1,5 +1,5 @@
 use crate::types::Type;
-use super::{Node, Rule, Span, NodeType };
+use super::{ASTNode, Node, Rule, Span, NodeType };
 
 #[derive(Debug)]
 pub enum BinaryOperator {
@@ -22,7 +22,8 @@ pub enum BinaryOperator {
     BitwiseAnd,
     BitwiseOr,
     BitwiseXOR,
-    Assign
+    Assign,
+    Cast
 }
 
 impl BinaryOperator {
@@ -48,22 +49,29 @@ impl BinaryOperator {
             Rule::bitwise_or => Self::BitwiseOr,
             Rule::bitwise_xor => Self::BitwiseXOR,
             Rule::assign => Self::Assign,
+            Rule::cast => Self::Cast,
             rule => { panic!("Rule {:?} isn't an operator", rule); }
         }
     }
 }
 
+impl ASTNode for BinaryOperation {
+    fn get_span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
 #[derive(Debug)]
 pub struct BinaryOperation {
-    left: NodeType,
+    left: Box<NodeType>,
     operator: BinaryOperator,
-    right: NodeType,
+    right: Box<NodeType>,
     typ: Option<Type>,
     span: Span
 }
 
 impl BinaryOperation {
     pub fn new(left: NodeType, operator: BinaryOperator, right: NodeType, span: Span ) -> Self {
-        Self{ left, operator, right, typ: None, span }
+        Self{ left: Box::new(left), operator, right: Box::new(right), typ: None, span }
     }
 }

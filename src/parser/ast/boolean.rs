@@ -1,5 +1,5 @@
 use crate::types::Type;
-use super::Span;
+use super::{ASTNode, Span};
 
 #[derive(Debug)]
 pub struct Boolean {
@@ -11,5 +11,11 @@ pub struct Boolean {
 impl Boolean {
     pub fn new(value: bool, span: Span) -> Self {
         Self{ value, typ: None, span }
+    }
+}
+
+impl ASTNode for Boolean {
+    fn get_span(&self) -> Span {
+        self.span.clone()
     }
 }

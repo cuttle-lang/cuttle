@@ -1,19 +1,47 @@
-use crate::parser::ast::{
+use super::{
     Rule, Result, Node, NodeType, Span,
-    BinaryOperation, BinaryOperator
+    BinaryOperation, BinaryOperator, ASTNode
 };
 use crate::types::Type;
 
 #[derive(Debug)]
 pub struct Expression {
-    expression: NodeType,
+    expression: Box<NodeType>,
     typ: Option<Type>,
     span: Span
 }
 
 impl Expression {
     pub fn new(expression: NodeType, span: Span) -> Self {
-        Self{ expression, typ: None, span }
+        Self{ expression: Box::new(expression), typ: None, span }
+    }
+}
+
+impl ASTNode for Expression {
+    fn get_span(&self) -> Span {
+        self.span.clone()
+    }
+}
+
+#[derive(Debug)]
+pub struct If {
+    expression: Box<NodeType>,
+    block: Vec<NodeType>,
+    else_if: Vec<Box<If>>,
+    else_block: Vec<NodeType>,
+    typ: Option<Type>,
+    span: Span
+}
+
+impl If {
+    pub fn new(expression: NodeType, block: Vec<NodeType>, else_if: Vec<Box<If>>, else_block: Vec<NodeType>, span: Span) -> Self {
+        Self{ expression: Box::new(expression), block, else_if, else_block, typ: None, span }
+    }
+}
+
+impl ASTNode for If {
+    fn get_span(&self) -> Span {
+        self.span.clone()
     }
 }
 
@@ -37,17 +65,18 @@ pub fn expression(left: NodeType, op: Node, right: NodeType) -> Result<NodeType>
             | Rule::minus
             | Rule::multiply
             | Rule::divide
-            | Rule::exponent 
+            | Rule::exponent
+            | Rule::cast
         => {
             let span: Span = Span::from_span(op.as_span());
             let op = BinaryOperator::from_node(op);
             
-            Ok(NodeType::BinaryOperation(Box::new(BinaryOperation::new(
+            Ok(NodeType::BinaryOperation(BinaryOperation::new(
                 left,
                 op,
                 right,
                 span
-            ))))
+            )))
         }
         rule => Err(op.error(format!("Rule {:?} isn't an operator", rule)))?
     }

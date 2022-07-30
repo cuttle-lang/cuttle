@@ -12,12 +12,14 @@ reserved                    =  { "let" | "mut" | "class" | "struct" | "interface
 
 expression                  =  { infix }
 infix                       = _{ term ~ (binary_operator ~ term)* }
-term                        =  { literal | access | unary | braced_expression }
+term                        =  { braced_expression | literal | access | unary }
 braced_expression           = _{ "(" ~ expression ~ ")" }
 
-declaration                 =  { ("let" | "mut") ~ visibility? ~ status? ~ ident ~ ":" ~ ((typespec? ~ assign ~ expression) | (typespec)) ~ ";" }
+declaration                 =  { (immutable | mutable) ~ visibility? ~ status? ~ ident ~ ":" ~ ((typespec? ~ assign ~ expression) | (typespec)) ~ ";" }
+immutable                   =  { "let" }
+mutable                     =  { "mut" }
 
-unary                       =  { unary_operator ~ (literal | local | braced_expression) }
+unary                       =  { unary_operator ~ term }
 
 scope_attributes            =  { scope_attribute+ }
 scope_attribute             =  { "#![" ~ expression ~ "]" }
@@ -29,7 +31,7 @@ scope                       =  { "::" }
 
 index                       =  { "[" ~ expression ~ "]" }
 call_arguments              =  { "(" ~ (call_argument ~ ("," ~ call_argument)* )? ~ ")" }
-call_argument               =  { expression }
+call_argument               = _{ expression }
 generic_call_args           =  { "<" ~ (typespec ~ ("," ~ typespec)*)? ~ ">" }
 
 scope_resolution            =  { ident ~ ("::" ~ ident)* }
@@ -37,40 +39,52 @@ dotted                      =  { scope_resolution ~ ("." ~ scope_resolution)* }
 
 visibility                  =  { "public" | "private" }
 status                      =  { "static" }
+external                    =  { "extern" }
 
-defargs                     = _{ "(" ~ (defarg ~ ("," ~ defarg)*)? ~ ")" }
+defargs                     =  { "(" ~ (defarg ~ ("," ~ defarg)*)? ~ ")" }
 defarg                      =  { ident ~ ":" ~ typespec }
 
 map                         =  { "{" ~ (map_pair ~ ("," ~ map_pair)*)? ~ "}" }
 map_pair                    =  { expression ~ ":" ~ expression }
 array                       =  { "[" ~ (expression ~ ("," ~ expression)*)? ~ "]" }
+tuple                       =  { "(" ~ expression ~ "," ~ ")" |
+                                 "(" ~ (expression ~ ("," ~ expression)+)? ~ ")" }
 
-statement                   = _{ attribute | function | declaration | class_def | struct_def | type_def |
-                                 return_stmt | break_stmt | continue_stmt | import_stmt | use_stmt | expr_statement }
+block                       =  { "{" ~ statement* ~ "}" }
+statement                   = _{ attribute | block | namespace | function | declaration | class_def | struct_def | type_def |
+                                 return_stmt | break_stmt | continue_stmt | import_stmt | use_stmt | if_stmt |
+                                 expr_statement }
 expr_statement              =  { expression ~ ";" }
 
-function                    =  { visibility? ~ status? ~ "function" ~ function_signature ~ function_block }
-function_args               =  { defargs }
+if_stmt                     =  { "if" ~ "(" ~ expression? ~ ")" ~ block ~ else_if_stmts? ~ else_stmt? }
+else_if_stmts               =  { else_if_stmt+ }
+else_if_stmt				=  { "else" ~ "if" ~ "(" ~ expression? ~ ")" ~ block }
+else_stmt                   =  { "else" ~ block }
+
+function                    =  { visibility? ~ (status | external)? ~ "function" ~ function_signature ~ (";" | function_block) }
+function_args               = _{ defargs }
 function_signature          =  { ident ~ generic_def_args? ~ function_args ~ function_output }
 function_output             =  { "->" ~ typespec }
 function_block              =  { "{" ~ statement* ~ "}" }
 
-class_def                   =  { "class" ~ ident ~ generic_def_args? ~ ((class_implements | class_extends) ~ scope_resolution)? ~ class_block }
+class_def                   =  { visibility? ~ "class" ~ ident ~ generic_def_args? ~ ((class_implements | class_extends) ~ scope_resolution)? ~ class_block }
 class_implements            =  { "implements" }
 class_extends               =  { "extends" }
 class_block                 =  { "{" ~ class_statement* ~ "}" ~ ";"? }
 class_statement             = _{ declaration | function | class_construct_method }
 class_construct_method      =  { "constructor" ~ function_args ~ function_block }
 
-struct_def                  =  { "struct" ~ ident ~ generic_def_args? ~ struct_block }
+struct_def                  =  { visibility? ~ "struct" ~ ident ~ generic_def_args? ~ struct_block }
 struct_block                =  { "{" ~ struct_declarations ~ "}" ~ ";"? }
-struct_declarations         =  { struct_declaration ~ ("," ~ struct_declaration)* }
+struct_declarations         = _{ struct_declaration ~ ("," ~ struct_declaration)* }
 struct_declaration          =  { visibility? ~ ident ~ ":" ~ typespec }
+
+namespace                   =  { "namespace" ~ scope_resolution ~ block }
 
 generic_def_args            =  { "<" ~ (generic_def_arg ~ ("," ~ generic_def_arg)*)? ~ ">" }
 generic_def_arg             =  { ident ~ ((class_implements | class_extends) ~ ident)? }
 
-type_def                    =  { "typedef" ~ ident ~ ":" ~ typespec ~ ";" }
+type_def                    =  { "typedef" ~ ident ~ generic_def_args? ~ ":" ~ typespec ~ ";" }
 return_stmt                 =  { "return" ~ expression? ~ ";" }
 break_stmt                  =  { "break" ~ ";" }
 continue_stmt               =  { "continue" ~ ";" }
@@ -79,19 +93,24 @@ import_stmt                 =  { "import" ~ string ~ ("as" ~ ident)? ~ ";" }
 use_stmt                    =  { "use" ~ scope_resolution ~ use_all? ~ ("as" ~ ident)? ~ ";" }
 use_all                     =  { "::" ~ "*" }
 
-literal                     = _{ class_constructor | struct_constructor | map | array | reference | string | float | integer | boolean }
+literal                     = _{ class_constructor | struct_constructor | map | array | tuple | reference | string | float | integer | boolean }
 
-class_constructor           =  { "new" ~ scope_resolution ~ generic_call_args? ~ defargs }
+class_constructor           =  { "new" ~ scope_resolution ~ generic_call_args? ~ call_arguments }
 struct_constructor          =  { scope_resolution ~ generic_call_args? ~ struct_map }
 struct_map                  =  { "{" ~ (struct_map_pair ~ ("," ~ struct_map_pair)*)? ~ "}" }
 struct_map_pair             =  { ident ~ ":" ~ expression }
 
 ident                       = @{ (!reserved ~ ((LETTER | "_") ~ (LETTER | NUMBER | "_")*)) }
-reference                   = @{ "&" ~ scope_resolution }
+reference                   =  { (mut_ref | immut_ref) ~ scope_resolution }
+mut_ref                     =  { "&" ~ "mut" }
+immut_ref                   =  { "&" }
 
-typename                    = @{ scope_resolution }
-typespec                    =  { "*"* ~ typename ~ generic_def_args? ~ type_array* }
+typename                    =  { scope_resolution }
+typespec                    =  { pointer* ~ (typename | type_tuple) ~ generic_call_args? ~ type_array* }
 type_array                  =  { "[" ~ integer_decimal? ~ "]"}
+type_tuple                  =  { "(" ~ typespec ~ "," ~ ")" |
+                                 "(" ~ (typespec ~ ("," ~ typespec)+)? ~ ")" }
+pointer                     =  { "*" }
 
 float                       = @{ float_characteristic ~ "." ~ float_mantissa }
 float_characteristic        =  { "0" | (('1'..'9') ~ ('0'..'9' | "_")*) }
@@ -137,6 +156,7 @@ bitwise_and                 =  { "&" }
 bitwise_or                  =  { "|" }
 bitwise_xor                 =  { "^" }
 assign                      =  { "=" }
+cast                        =  { "as" }
 all_operators               = _{
                                  exponent |
                                  multiply | divide | modulus |
@@ -147,7 +167,7 @@ all_operators               = _{
                                  not_equal | equal |
                                  logical_and | logical_or | logical_not |
                                  bitwise_and | bitwise_or | bitwise_xor |
-                                 assign
+                                 assign | cast
                                 }
 binary_operator             = _{
                                  exponent |
@@ -158,7 +178,8 @@ binary_operator             = _{
                                  greater_than_or_equal | greater_than |
                                  not_equal | equal |
                                  logical_and | logical_or |
-                                 bitwise_and | bitwise_or | bitwise_xor
+                                 bitwise_and | bitwise_or | bitwise_xor |
+                                 assign | cast
                                }
 unary_operator              = _{ plus | minus | logical_not }
 

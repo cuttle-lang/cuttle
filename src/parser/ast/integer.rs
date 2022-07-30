@@ -1,7 +1,5 @@
 use crate::types::Type;
-use super::{
-    Span, Node, Result
-};
+use super::{ASTNode, Span, Node, Result};
 
 #[derive(Debug)]
 pub struct Integer {
@@ -13,6 +11,12 @@ pub struct Integer {
 impl Integer {
     pub fn new(value: i128, span: Span) -> Self {
         Self{ value, typ: None, span }
+    }
+}
+
+impl ASTNode for Integer {
+    fn get_span(&self) -> Span {
+        self.span.clone()
     }
 }
 

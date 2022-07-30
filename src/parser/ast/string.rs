@@ -1,5 +1,5 @@
 use crate::types::Type;
-use super::Span;
+use super::{ASTNode, Span};
 
 #[derive(Debug)]
 pub struct Str {
@@ -11,5 +11,11 @@ pub struct Str {
 impl Str {
     pub fn new(string: String, span: Span) -> Self {
         Self{ string, typ: None, span }
+    }
+}
+
+impl ASTNode for Str {
+    fn get_span(&self) -> Span {
+        self.span.clone()
     }
 }

@@ -30,6 +30,6 @@ fn build_precedence_climber() -> PrecClimber<Rule> {
             | Operator::new(Rule::divide, Assoc::Left)
             | Operator::new(Rule::multiply, Assoc::Left),
         Operator::new(Rule::exponent, Assoc::Right),
-        // Operator::new(Rule::cast, Assoc::Left)
+        Operator::new(Rule::cast, Assoc::Left)
     ])
 }
